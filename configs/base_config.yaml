@@ -1,0 +1,41 @@
+# Training Configuration
+train:
+  seed: 42
+  epochs: 20
+  batch_size: 1
+  learning_rate: 0.001
+  num_workers: 4
+  # Path to your dataset
+  data_path: "data/all_data_sparse_dense"
+  # Path to save logs and model checkpoints
+  log_path: "./logs"
+
+# Model Configuration
+model:
+  # Number of depth hypotheses to check
+  num_depth_hypotheses: 64
+  # Min and max depth range for the scene
+  min_depth: 0.5
+  max_depth: 10.0
+  # Number of views to use (1 ref + N src)
+  num_views: 3
+  # Resize scale for images
+  resize_scale: 0.5
+
+  # --- 修改开始：将通道数减半以降低显存 ---
+  # RGB Branch (FPN) feature channels
+  fpn_channels: [32, 64, 128] # 原: [64, 128, 256]
+
+  # Depth Branch (ResNet) feature channels
+  depth_net_channels: 32      # 原: 64
+
+  # 3D U-Net configuration
+  unet_base_channels: 4       # 原: 8
+  # --- 修改结束 ---
+
+# Loss Configuration
+loss:
+  # Weight for the smoothness loss term
+  smoothness_weight: 0.02
+  # Weights for multi-scale L1 losses (from finest to coarsest)
+  l1_weights: [1.0, 0.7, 0.5]

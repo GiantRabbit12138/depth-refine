@@ -1,0 +1,26 @@
+{
+    // 编辑器通用设置
+    "editor.formatOnSave": true,
+    "editor.formatOnType": true,
+    "editor.codeActionsOnSave": {
+        "source.organizeImports": "explicit",
+        "source.fixAll": "explicit"
+    },
+    // 文件处理设置
+    "files.trimTrailingWhitespace": true,
+    "files.insertFinalNewline": true,
+    "files.trimFinalNewlines": true,
+    // Python 文件特定设置
+    "[python]": {
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit"
+        }
+    },
+    // 其他实用设置
+    "editor.rulers": [
+        88
+    ], // 显示 88 字符的标尺线（Black 默认）
+    "editor.wordWrap": "on",
+    "editor.minimap.enabled": true
+}
