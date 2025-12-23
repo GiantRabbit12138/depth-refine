@@ -80,6 +80,7 @@ class MVSDataset(Dataset):
 
     def __getitem__(self, idx):
         scene, cam_params = self.metas[idx]
+        ref_image_name = cam_params[0]['name']
 
         images = []
         init_depths = []
@@ -93,7 +94,7 @@ class MVSDataset(Dataset):
             img_path = os.path.join(self.data_path, scene, 'images', img_name)
             img = Image.open(img_path).convert('RGB')
 
-            # --- 新增代码：缩放图像 ---
+            # --- 缩放图像 ---
             if self.resize_scale != 1.0:
                 new_width = int(img.width * self.resize_scale)
                 new_height = int(img.height * self.resize_scale)
@@ -107,7 +108,7 @@ class MVSDataset(Dataset):
             depth_path = os.path.join(self.data_path, scene, 'depths', img_name)
             init_depth = cv2.imread(depth_path, cv2.IMREAD_UNCHANGED)
             if init_depth is not None:
-                # --- 新增代码：缩放深度图 ---
+                # --- 缩放深度图 ---
                 if self.resize_scale != 1.0:
                     new_width = int(init_depth.shape[1] * self.resize_scale)
                     new_height = int(init_depth.shape[0] * self.resize_scale)
@@ -123,7 +124,7 @@ class MVSDataset(Dataset):
             # 3. 整理相机参数并根据缩放比例进行调整
             K = torch.from_numpy(cam_info['K']).float()
 
-            # --- 新增代码：调整相机内参 ---
+            # --- 调整相机内参 ---
             if self.resize_scale != 1.0:
                 K[0, :] *= self.resize_scale # 缩放 fx, cx
                 K[1, :] *= self.resize_scale # 缩放 fy, cy
@@ -137,22 +138,29 @@ class MVSDataset(Dataset):
             cam_intrinsics.append(K)
             cam_poses.append(torch.from_numpy(E_inv).float())
 
-        # 4. 加载真实深度图并进行缩放
-        gt_depth_path = os.path.join(self.data_path, scene, 'depths', cam_params[0]['name'])
-        gt_depth = cv2.imread(gt_depth_path, cv2.IMREAD_UNCHANGED)
+        # 4. 加载用于模型计算的GT深度图 (缩放版本)
+        gt_depth_path = os.path.join(self.data_path, scene, 'depths', ref_image_name)
+        gt_depth_scaled_raw = cv2.imread(gt_depth_path, cv2.IMREAD_UNCHANGED)
+        if gt_depth_scaled_raw is None:
+            raise FileNotFoundError(f"Ground truth depth not found at: {gt_depth_path}")
 
-        # --- 新增代码：缩放真实深度图 ---
         if self.resize_scale != 1.0:
-            new_width = int(gt_depth.shape[1] * self.resize_scale)
-            new_height = int(gt_depth.shape[0] * self.resize_scale)
-            gt_depth = cv2.resize(gt_depth, (new_width, new_height), interpolation=cv2.INTER_NEAREST)
+            new_width = int(gt_depth_scaled_raw.shape[1] * self.resize_scale)
+            new_height = int(gt_depth_scaled_raw.shape[0] * self.resize_scale)
+            gt_depth_scaled_raw = cv2.resize(gt_depth_scaled_raw, (new_width, new_height), interpolation=cv2.INTER_NEAREST)
 
-        gt_depth = torch.from_numpy(gt_depth.astype(np.float32) / self.depth_scale).unsqueeze(0)
+        gt_depth_scaled = torch.from_numpy(gt_depth_scaled_raw.astype(np.float32) / self.depth_scale).unsqueeze(0)
 
         return {
             "images": torch.stack(images),
             "init_depths": torch.stack(init_depths),
             "cam_intrinsics": torch.stack(cam_intrinsics),
             "cam_poses": torch.stack(cam_poses),
-            "gt_depth": gt_depth
+            "gt_depth": gt_depth_scaled, # 用于计算loss的缩放后版本
+            # --- 修改：只传递路径，不加载原始图像 ---
+            "meta_info": {
+                "scene": scene,
+                "ref_image_name": ref_image_name,
+                "gt_depth_path": gt_depth_path
+            }
         }
